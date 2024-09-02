@@ -48,17 +48,18 @@ wss.on('connection', function connection(ws) {
             const updatedturn = data.turn === 'X' ? 'O' : 'X';
             game.playerO.send(JSON.stringify({ board: game.board, type: 'update', turn: updatedturn }));
             game.playerX.send(JSON.stringify({ board: game.board, type: 'update', turn: updatedturn }));
-            
+
         }
 
         const checkWin = checkWinner(game.board);
         if (checkWin) {
             game.playerO.send(JSON.stringify({ board: game.board, type: 'end', winner: checkWin }));
             game.playerX.send(JSON.stringify({ board: game.board, type: 'end', winner: checkWin }));
-            
+
             Games = Games.filter(g => g !== game);
             return;
         }
+        const checkdraw = checkDraw(game);
         
     });
 
@@ -69,10 +70,15 @@ wss.on('connection', function connection(ws) {
             const gameIndex = Games.findIndex((game) => game.playerO === ws || game.playerX === ws);
             if (gameIndex !== -1) {
                 const game = Games[gameIndex];
-                game.playerX.send(JSON.stringify({ type: 'end', msg: 'Opponent disconnected' }));
-                game.playerO.send(JSON.stringify({ type: 'end', msg: 'Opponent disconnected' }));
-                
-                Games.splice(game.gameIndex, 1);
+
+                if (game.playerX.readyState === WebSocket.OPEN) {
+                    game.playerX.send(JSON.stringify({ type: 'end', msg: 'Opponent disconnected' }));
+                }
+                if (game.playerO.readyState === WebSocket.OPEN) {
+                    game.playerO.send(JSON.stringify({ type: 'end', msg: 'Opponent disconnected' }));
+                }
+
+                Games.splice(gameIndex, 1);
             }
         }
     });
@@ -96,5 +102,20 @@ wss.on('connection', function connection(ws) {
             }
         }
         return null;
+    }
+
+    function checkDraw(game) {
+        let blank = 0;
+
+        game.board.map((item, i) => {
+            if (item !== null) {
+                blank++;
+            }
+        })
+
+        if (blank === 9) {
+            game.playerO.send(JSON.stringify({ board: game.board, type: 'draw', turn: 'none' }));
+            game.playerX.send(JSON.stringify({ board: game.board, type: 'draw', turn: 'none' }));
+        }
     }
 });
